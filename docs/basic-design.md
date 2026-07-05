@@ -359,7 +359,7 @@ erDiagram
     users ||--o{ submissions : "has"
     problems ||--o{ test_cases : "has"
     problems ||--o{ submissions : "has"
-    subimissions ||--o{ execution_results : "has"
+    submissions ||--o{ execution_results : "has"
     test_cases ||--o{ execution_results : "used_by"
 
     users {
@@ -419,7 +419,6 @@ erDiagram
       text error_message
       datetime created_at
     }
-  }
   ```
 
 ---

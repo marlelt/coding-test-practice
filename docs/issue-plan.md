@@ -38,7 +38,7 @@
 
 ### 作業内容
 
-- NExt.js 用コンテナを作成する
+- Next.js 用コンテナを作成する
 - PostgreSQL コンテナを作成する
 - `docker-compose.yml` を作成する
 - 環境変数を整理する
