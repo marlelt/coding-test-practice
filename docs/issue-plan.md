@@ -40,7 +40,7 @@
 
 - Next.js 用コンテナを作成する
 - PostgreSQL コンテナを作成する
-- `docker-compose.yml` を作成する
+- `compose.yml` を作成する
 - 環境変数を整理する
 - ローカル起動確認を行う
 
