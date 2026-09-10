@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            Int          @id @default(autoincrement())
+  name          String?
+  email         String       @unique
+  emailVerified DateTime?    @map("email_verified")
+  image         String?
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+  submissions   Submission[]
+
+  @@map("users")
+}
+
+model Problem {
+  id           Int          @id @default(autoincrement())
+  title        String
+  slug         String       @unique
+  description  String       @db.Text
+  difficulty   String
+  inputFormat  String       @map("input_format") @db.Text
+  outputFormat String       @map("output_format") @db.Text
+  constraints  String       @db.Text
+  isPublished  Boolean      @default(false) @map("is_published")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  testCases    TestCase[]
+  submissions  Submission[]
+
+  @@map("problems")
+}
+
+model TestCase {
+  id               Int               @id @default(autoincrement())
+  problemId        Int               @map("problem_id")
+  input            String            @db.Text
+  expectedOutput   String            @map("expected_output") @db.Text
+  isSample         Boolean           @default(false) @map("is_sample")
+  sortOrder        Int               @map("sort_order")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  problem          Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  executionResults ExecutionResult[]
+
+  @@map("test_cases")
+}
+
+model Submission {
+  id               Int               @id @default(autoincrement())
+  userId           Int               @map("user_id")
+  problemId        Int               @map("problem_id")
+  language         String
+  sourceCode       String            @map("source_code") @db.Text
+  status           String
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  problem          Problem           @relation(fields: [problemId], references: [id], onDelete: Restrict)
+  executionResults ExecutionResult[]
+
+  @@map("submissions")
+}
+
+model ExecutionResult {
+  id              Int        @id @default(autoincrement())
+  submissionId    Int        @map("submission_id")
+  testCaseId      Int        @map("test_case_id")
+  status          String
+  actualOutput    String?    @map("actual_output") @db.Text
+  expectedOutput  String?    @map("expected_output") @db.Text
+  executionTimeMs Int?       @map("execution_time_ms")
+  memoryKb        Int?       @map("memory_kb")
+  errorMessage    String?    @map("error_message") @db.Text
+  createdAt       DateTime   @default(now()) @map("created_at")
+  submission      Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  testCase        TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Restrict)
+
+  @@map("execution_results")
+}
