@@ -100,13 +100,13 @@ Lint、TypeCheck、Testを自動実行するため採用する。
 
 ```txt
 ブラウザ
-　　↓
+↓
 Next.js
 ├─ 画面
 ├─ API(Route Handlers)
 ├─ Auth.js
 ├─ Prisma
-　　↓
+↓
 PostgreSQL
 ```
 
@@ -135,9 +135,9 @@ PostgreSQL
 
 ```txt
 Next.js
-　　↓
+↓
 コード実行依頼
-　　↓
+↓
 Docker実行環境
 ├─ PHP
 ├─ TypeScript
@@ -363,17 +363,18 @@ erDiagram
     test_cases ||--o{ execution_results : "used_by"
 
     users {
-      string id PK
+      int id PK
       string name
       string email
       datetime email_verified
       string image
       datetime created_at
       datetime updated_at
+      datetime deleted_at
     }
 
     problems {
-      string id PK
+      int id PK
       string title
       string slug
       text description
@@ -381,13 +382,14 @@ erDiagram
       text input_format
       text output_format
       text constraints
+      boolean is_published
       datetime created_at
       datetime updated_at
     }
 
     test_cases {
-      string id PK
-      string problem_id FK
+      int id PK
+      int problem_id FK
       text input
       text expected_output
       boolean is_sample
@@ -397,9 +399,9 @@ erDiagram
     }
 
     submissions {
-      string id PK
-      string user_id FK
-      string problem_id FK
+      int id PK
+      int user_id FK
+      int problem_id FK
       string language
       text source_code
       string status
@@ -408,9 +410,9 @@ erDiagram
     }
 
     execution_results {
-      string id PK
-      string submission_id FK
-      string test_case_id FK
+      int id PK
+      int submission_id FK
+      int test_case_id FK
       string status
       text actual_output
       text expected_output
@@ -429,56 +431,72 @@ erDiagram
 
 Auth.js で利用するユーザーテーブル。
 
-| カラム | 型 | 必須 | 説明 |
-| --- | --- | --- | --- |
-| id | String | yes | ユーザーID |
-| name | String | no | ユーザー名 |
-| email | String | yes | メールアドレス |
-| email_verified | DateTime | no | メール認証日時 |
-| image | String | no | プロフィール画像 |
-| created_at | DateTime | yes | 作成日時 |
-| updated_at | DateTime | yes | 更新日時 |
+| カラム | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| id | Int | yes | PK, 自動採番 | ユーザーID |
+| name | String | no | - | ユーザー名 |
+| email | String | yes | UNIQUE | メールアドレス |
+| email_verified | DateTime | no | - | メール認証日時 |
+| image | String | no | - | プロフィール画像 |
+| created_at | DateTime | yes | - | 作成日時 |
+| updated_at | DateTime | yes | - | 更新日時 |
+| deleted_at | DateTime | no | - | 退会日時 |
+
+#### 備考
+
+- `id` は自動採番の整数値とする
+- `email` はユーザーを一意に識別するため、UNIQUE制約を設定する
+- `deleted_at` がNULLの場合は有効なユーザー、値が設定されている場合は退会済みユーザーとして扱う
+- ユーザーが退会しても、過去の提出履歴を保持するためレコードは物理削除しない
+- Phase1では退会済みユーザーはログイン不可とする想定
 
 ### 11.2 problems
 
 コーディング問題を管理するテーブル。
 
-| カラム | 型 | 必須 | 説明 |
-| --- | --- | --- | --- |
-| id | String | yes | 問題ID |
-| title | String | yes | 問題タイトル |
-| slug | String | yes | URL用識別子 |
-| description | Text | yes | 問題文 |
-| difficulty | String | yes | 難易度 |
-| input_format | Text | yes | 入力形式 |
-| output_format | Text | yes | 出力形式 |
-| constraints | Text | yes | 制約 |
-| created_at | DateTime | yes | 作成日時 |
-| updated_at | DateTime | yes | 更新日時 |
+| カラム | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| id | Int | yes | PK, 自動採番 | 問題ID |
+| title | String | yes | - | 問題タイトル |
+| slug | String | yes | UNIQUE | URL用識別子 |
+| description | Text | yes | - | 問題文 |
+| difficulty | String | yes | - | 難易度 |
+| input_format | Text | yes | - | 入力形式 |
+| output_format | Text | yes | - | 出力形式 |
+| constraints | Text | yes | - | 制約 |
+| is_published | Boolean | yes | DEFAULT false | 公開状態 |
+| created_at | DateTime | yes | - | 作成日時 |
+| updated_at | DateTime | yes | - | 更新日時 |
 
 #### 備考
 
-- `slug` は `/problems/a-plus-b` のようなURLで利用する
+- `id` は自動採番の整数値とする
+- `slug` は `/problems/a-plus-b` のようなURLで利用し、問題を一意に識別するためUNIQUE制約を設定する
 - `difficulty` は `easy` / `medium` / `hard` を想定する
+- `is_published` が `true` の問題のみ一般ユーザーへ公開する
+- 新規作成時は誤公開を防ぐため `is_published` の初期値を `false` とする
+- 問題を非公開にしても、過去の提出履歴を保持するためSubmissionは削除しない
+- Phase1では問題の論理削除用 `deleted_at` は持たず、公開・非公開を `is_published` で管理する
 - Phase1では `editorial`、`hint`、`tag`、`category` は持たない
 
 ### 11.3 test_cases
 
 問題に紐づくテストケースを管理するテーブル。
 
-| カラム | 型 | 必須 | 説明 |
-| --- | --- | --- | --- |
-| id | String | yes | テストケースID |
-| problem_id | String | yes | 問題ID |
-| input | Text | yes | 標準入力 |
-| expected_output | Text | yes | 期待出力 |
-| is_sample | Boolean | yes | サンプルケースかどうか |
-| sort_order | Int | yes | 表示順 |
-| created_at | DateTime | yes | 作成日時 |
-| updated_at | DateTime | yes | 更新日時 |
+| カラム | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| id | Int | yes | PK, 自動採番 | テストケースID |
+| problem_id | Int | yes | FK → problems.id | 問題ID |
+| input | Text | yes | - | 標準入力 |
+| expected_output | Text | yes | - | 期待出力 |
+| is_sample | Boolean | yes | - | サンプルケースかどうか |
+| sort_order | Int | yes | - | 表示順 |
+| created_at | DateTime | yes | - | 作成日時 |
+| updated_at | DateTime | yes | - | 更新日時 |
 
 #### 備考
 
+- `id` は自動採番の整数値とする
 - `isSample = true` の場合、問題詳細画面に表示する
 - `isSample = false` の場合、採点時のみ利用する
 - 1つの問題は複数のテストケースを持つ
@@ -487,19 +505,20 @@ Auth.js で利用するユーザーテーブル。
 
 ユーザーの提出コードを管理するテーブル。
 
-| カラム | 型 | 必須 | 説明 |
-| --- | --- | --- | --- |
-| id | String | yes | 提出ID |
-| user_id | String | yes | ユーザーID |
-| problem_id | String | yes | 問題ID |
-| language | String | yes | 使用言語 |
-| source_code | Text | yes | 提出コード |
-| status | String | yes | 提出ステータス |
-| created_at | DateTime | yes | 作成日時 |
-| updated_at | DateTime | yes | 更新日時 |
+| カラム | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| id | Int | yes | PK, 自動採番 | 提出ID |
+| user_id | Int | yes | FK → users.id | ユーザーID |
+| problem_id | Int | yes | FK → problems.id | 問題ID |
+| language | String | yes | - | 使用言語 |
+| source_code | Text | yes | - | 提出コード |
+| status | String | yes | - | 提出ステータス |
+| created_at | DateTime | yes | - | 作成日時 |
+| updated_at | DateTime | yes | - | 更新日時 |
 
 #### 備考
 
+- `id` は自動採番の整数値とする
 - `language` は `php` / `typescript` を想定する
 - `status` は提出全体の採点結果を表す
 - 1ユーザーは複数の提出を持つ
@@ -509,21 +528,22 @@ Auth.js で利用するユーザーテーブル。
 
 各テストケースに対する実行結果を管理するテーブル。
 
-| カラム | 型 | 必須 | 説明 |
-| --- | --- | --- | --- |
-| id | String | yes | 実行結果ID |
-| submission_id | String | yes | 提出ID |
-| test_case_id | String | yes | テストケースID |
-| status | String | yes | 実行結果ステータス |
-| actual_output | Text | no| 実際の出力 |
-| expected_output | Text | no | 期待出力 |
-| execution_time_ms | Int | no | 実行時間 |
-| memory_kb | Int | no | メモリ使用量 |
-| error_message | Text | no | エラー内容 |
-| created_at | DateTime | yes | 作成日時 |
+| カラム | 型 | 必須 | 制約 | 説明 |
+| --- | --- | --- | --- | --- |
+| id | Int | yes | PK, 自動採番 | 実行結果ID |
+| submission_id | Int | yes | FK → submissions.id | 提出ID |
+| test_case_id | Int | yes | FK → test_cases.id | テストケースID |
+| status | String | yes | - | 実行結果ステータス |
+| actual_output | Text | no | - | 実際の出力 |
+| expected_output | Text | no | - | 期待出力 |
+| execution_time_ms | Int | no | - | 実行時間 |
+| memory_kb | Int | no | - | メモリ使用量 |
+| error_message | Text | no | - | エラー内容 |
+| created_at | DateTime | yes | - | 作成日時 |
 
 #### 備考
 
+- `id` は自動採番の整数値とする
 - 1つの提出は複数の実行結果を持つ
 - テストケースごとに `accepted` / `wrong_answer` / `runtime_error` / `timeout` を判定する
 - `actual_output` はユーザーコードの出力結果
